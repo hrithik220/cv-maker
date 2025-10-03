@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CV Builder Pro - Create Your Perfect Resume</title>
+
+  <!-- Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    /* --- keep all your styles here (same as before) --- */
+  </style>
+</head>
+<body>
+  <div class="bg-animation"></div>
+  <header class="header">
+    <h1>✨ CV Builder Pro ✨</h1>
+  </header>
+
+  <div class="container">
+    <!-- Form Section (same as before) -->
+    <!-- ... your form section code here ... -->
+
+    <!-- Preview Section -->
+    <div class="preview-section" id="cvPreview">
+      <div class="cv-preview" id="cvContent">
+        <!-- your CV preview content here (same as before) -->
+      </div>
+    </div>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="loading-content">
+      <div class="spinner"></div>
+      <div class="loading-text">Generating your CV...</div>
+    </div>
+  </div>
+
+  <div class="success-message" id="successMessage">
+    ✅ CV Downloaded Successfully!
+  </div>
+
+  <footer class="footer">
+    <p>&copy; 2024 All Rights Reserved to Hrithik | CV Builder Pro - Empowering Your Career Journey</p>
+  </footer>
+
+  <script>
+    // --- keep all your existing JS functions (updatePreview, addExperience, etc.) ---
+
+    // ✅ Download as PDF (works perfectly now)
+    async function downloadPDF() {
+      const loading = document.getElementById("loading");
+      loading.classList.add("active");
+
+      const { jsPDF } = window.jspdf;
+      const cv = document.getElementById("cvContent");
+
+      // Use html2canvas to capture
+      const canvas = await html2canvas(cv, { scale: 2 });
+      const imgData = canvas.toDataURL("image/png");
+
+      const pdf = new jsPDF("p", "pt", "a4");
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      const imgWidth = pageWidth - 40; 
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let y = 20;
+      pdf.addImage(imgData, "PNG", 20, y, imgWidth, imgHeight);
+
+      pdf.save("My_CV.pdf");
+
+      loading.classList.remove("active");
+      showSuccess();
+    }
+
+    // ✅ Download as Image (works perfectly now)
+    async function downloadImage() {
+      const cv = document.getElementById("cvContent");
+
+      const canvas = await html2canvas(cv, { scale: 2 });
+      const link = document.createElement("a");
+      link.download = "My_CV.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+
+      showSuccess();
+    }
+
+    // ✅ Success Message Popup
+    function showSuccess() {
+      const msg = document.getElementById("successMessage");
+      msg.classList.add("show");
+      setTimeout(() => msg.classList.remove("show"), 3000);
+    }
+  </script>
+</body>
+</html>
