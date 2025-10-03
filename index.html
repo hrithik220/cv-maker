@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CV Builder Pro - Create Your Perfect Resume</title>
+    
+    <!-- Add jsPDF and html2canvas libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -273,6 +278,7 @@
         .cv-item-description {
             color: #555;
             margin-top: 5px;
+            white-space: pre-wrap;
         }
 
         /* Template Selector */
@@ -300,6 +306,40 @@
             background: var(--purple-primary);
         }
 
+        /* Template Styles */
+        .template-classic .cv-header {
+            border-bottom: 2px solid #333;
+        }
+
+        .template-classic .cv-name {
+            color: #333;
+        }
+
+        .template-classic .cv-section h3 {
+            color: #333;
+            background: #f0f0f0;
+            padding: 5px 10px;
+            border-bottom: none;
+        }
+
+        .template-minimal .cv-header {
+            border-bottom: 1px solid #ddd;
+        }
+
+        .template-minimal .cv-name {
+            color: #000;
+            font-size: 2em;
+        }
+
+        .template-minimal .cv-section h3 {
+            color: #555;
+            border-bottom: 1px solid #ddd;
+            font-weight: normal;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 1em;
+        }
+
         /* Footer */
         .footer {
             text-align: center;
@@ -325,14 +365,22 @@
         .loading {
             display: none;
             position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
             z-index: 1000;
+            justify-content: center;
+            align-items: center;
         }
 
         .loading.active {
-            display: block;
+            display: flex;
+        }
+
+        .loading-content {
+            text-align: center;
         }
 
         .spinner {
@@ -342,11 +390,17 @@
             border-top: 4px solid var(--purple-primary);
             border-radius: 50%;
             animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
         }
 
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: var(--text-light);
+            font-size: 1.2em;
         }
 
         /* Skills Pills */
@@ -365,24 +419,34 @@
             font-size: 14px;
         }
 
-        /* Print Styles */
-        @media print {
-            body {
-                background: white;
+        /* Success Message */
+        .success-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #4a9d4e, #6bc170);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(74, 157, 78, 0.4);
+            display: none;
+            z-index: 1001;
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
             }
-            
-            .form-section, .header, .footer, .btn, .template-selector {
-                display: none;
+            to {
+                transform: translateX(0);
+                opacity: 1;
             }
-            
-            .container {
-                display: block;
-            }
-            
-            .preview-section {
-                box-shadow: none;
-                padding: 0;
-            }
+        }
+
+        .success-message.show {
+            display: block;
         }
     </style>
 </head>
@@ -470,12 +534,13 @@
             <div style="margin-top: 30px; text-align: center;">
                 <button class="btn" onclick="resetForm()">Reset Form</button>
                 <button class="btn btn-download" onclick="downloadCV()">📥 Download PDF</button>
+                <button class="btn" onclick="downloadAsImage()" style="background: linear-gradient(135deg, #667eea, #764ba2);">📸 Download as Image</button>
             </div>
         </div>
 
         <!-- Preview Section -->
         <div class="preview-section" id="cvPreview">
-            <div class="cv-preview">
+            <div class="cv-preview" id="cvContent">
                 <div class="cv-header">
                     <div class="cv-name" id="previewName">Your Name</div>
                     <div class="cv-title" id="previewTitle" style="font-size: 1.2em; color: #666; margin-bottom: 10px;"></div>
@@ -515,7 +580,14 @@
     </div>
 
     <div class="loading" id="loading">
-        <div class="spinner"></div>
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <div class="loading-text">Generating your CV...</div>
+        </div>
+    </div>
+
+    <div class="success-message" id="successMessage">
+        ✅ CV Downloaded Successfully!
     </div>
 
     <footer class="footer">
@@ -534,6 +606,11 @@
                 btn.classList.remove('active');
             });
             event.target.classList.add('active');
+            
+            // Apply template class to preview
+            const preview = document.getElementById('cvContent');
+            preview.className = 'cv-preview template-' + template;
+            
             updatePreview();
         }
 
@@ -754,43 +831,30 @@
             }
         }
 
-        function downloadCV() {
+        function showSuccess() {
+            const successMsg = document.getElementById('successMessage');
+            successMsg.classList.add('show');
+            setTimeout(() => {
+                successMsg.classList.remove('show');
+            }, 3000);
+        }
+
+        async function downloadCV() {
             const loading = document.getElementById('loading');
             loading.classList.add('active');
             
-            setTimeout(() => {
+            try {
                 const element = document.getElementById('cvPreview');
-                const opt = {
-                    margin: 0,
-                    filename: 'my-cv.pdf',
-                    image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2 },
-                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                };
+                const { jsPDF } = window.jspdf;
                 
-                // Create a clone to modify for PDF
+                // Create a clone for better rendering
                 const clone = element.cloneNode(true);
-                clone.style.width = '210mm';
-                clone.style.padding = '10mm';
+                clone.style.width = '800px';
+                clone.style.position = 'absolute';
+                clone.style.left = '-9999px';
                 document.body.appendChild(clone);
                 
-                // Use html2pdf library (we'll simulate with print)
-                window.print();
-                
-                document.body.removeChild(clone);
-                loading.classList.remove('active');
-                
-                // Show success message
-                alert('CV Downloaded Successfully! Check your downloads folder.');
-            }, 1000);
-        }
-
-        // Initialize with one experience and education field
-        window.onload = function() {
-            addExperience();
-            addEducation();
-            addLanguage();
-        };
-    </script>
-</body>
-</html>
+                // Generate canvas from HTML
+                const canvas = await html2canvas(clone, {
+                    scale: 2,
+                    useCORS: true,
